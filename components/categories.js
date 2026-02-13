@@ -62,6 +62,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.lg,
     borderCurve: "continuous",
+    marginBottom: hp(2),
   },
   title: {
     fontSize: hp(1.8),

@@ -81,10 +81,7 @@ const FiltersModal = ({
               <Text
                 style={[
                   styles.buttonText,
-                  {
-                    backgroundColor: theme.colors.black,
-                    color: theme.colors.white,
-                  },
+                  { color: theme.colors.white },
                 ]}
               >
                 Apply

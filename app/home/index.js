@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Feather, FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { theme } from "../../constants/theme";
 import { hp, wp } from "../../helpers/common";
@@ -17,37 +18,54 @@ import { apiCall } from "../../api";
 import ImageGrid from "../../components/imageGrid";
 import { debounce } from "lodash";
 import FiltersModal from "../../components/filtersModal";
-
-var page = 1;
+import FullScreenImageView from "../../components/FullScreenImageView";
 
 const HomeScreen = () => {
+  const router = useRouter();
   const { top } = useSafeAreaInsets();
   const [search, setSearch] = useState("");
   const searchInputRef = useRef(null);
   const modalRef = useRef(null);
+  const listRef = useRef(null);
   const paddingTop = top > 0 ? top + 10 : 30;
   const [activeCategory, setActiveCategory] = useState(null);
   const [images, setImages] = useState([]);
   const [filters, setFilters] = useState({});
-  const scrollRef = useRef(null);
-  const [isEndReached, setIsEndReached] = useState(false);
+  const pageRef = useRef(1);
+  const isLoadingRef = useRef(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [noMoreResults, setNoMoreResults] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  const PER_PAGE = 25;
 
   useEffect(() => {
-    fetchImages();
+    fetchImages({ page: 1 }, false);
   }, []);
 
-  const fetchImages = async (params = { page: 1 }, append = true) => {
-    let res = await apiCall(params);
-    console.log("Params", params, append);
-    // console.log("Got Result", res.data);
-    if (res.success && res?.data?.hits) {
-      if (append) {
-        setImages([...images, ...res.data.hits]);
-      } else {
-        setImages([...res.data.hits]);
+  const fetchImages = useCallback(async (params = { page: 1 }, append = false) => {
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+    setIsLoading(true);
+    if (!append) setNoMoreResults(false);
+    try {
+      const res = await apiCall(params);
+      if (res.success && res?.data?.hits) {
+        const hits = res.data.hits;
+        if (append) {
+          setImages((prev) => [...prev, ...hits]);
+        } else {
+          setImages(hits);
+        }
+        if (hits.length < PER_PAGE) {
+          setNoMoreResults(true);
+        }
       }
+    } finally {
+      isLoadingRef.current = false;
+      setIsLoading(false);
     }
-  };
+  }, []);
 
   const openFiltersModal = () => {
     modalRef?.current?.present();
@@ -58,12 +76,11 @@ const HomeScreen = () => {
   };
 
   const applyFilters = () => {
-    console.log("Applying Filters");
     if (filters) {
-      page = 1;
+      pageRef.current = 1;
       setImages([]);
-      let params = {
-        page,
+      const params = {
+        page: 1,
         ...filters,
       };
       if (activeCategory) params.category = activeCategory;
@@ -74,14 +91,11 @@ const HomeScreen = () => {
   };
 
   const resetFilters = () => {
-    console.log("Resetting Filters");
     if (filters) {
-      page = 1;
+      pageRef.current = 1;
       setFilters({});
       setImages([]);
-      let params = {
-        page,
-      };
+      const params = { page: 1 };
       if (activeCategory) params.category = activeCategory;
       if (search) params.q = search;
       fetchImages(params, false);
@@ -90,51 +104,40 @@ const HomeScreen = () => {
   };
 
   const clearThisFilter = (filterName) => {
-    let filterz = { ...filters };
+    const filterz = { ...filters };
     delete filterz[filterName];
-    setFilters({ ...filterz });
-    page = 1;
+    setFilters(filterz);
+    pageRef.current = 1;
     setImages([]);
-    let params = {
-      page,
-      ...filterz,
-    };
-
+    const params = { page: 1, ...filterz };
     if (activeCategory) params.category = activeCategory;
     if (search) params.q = search;
     fetchImages(params, false);
   };
+
   const handleChangeCategory = (cat) => {
     setActiveCategory(cat);
     clearSearch();
     setImages([]);
-    page = 1;
-    let params = {
-      page,
-      ...filters,
-    };
+    pageRef.current = 1;
+    const params = { page: 1, ...filters };
     if (cat) params.category = cat;
     fetchImages(params, false);
   };
 
   const handleSearch = (text) => {
-    // console.log("searching for ", text);
     setSearch(text);
-    page = 1;
+    pageRef.current = 1;
     if (text.length > 2) {
-      // search for the text
       setImages([]);
-      setActiveCategory(null); // to get the text searches
-      fetchImages({ page, q: text, ...filters }, false);
+      setActiveCategory(null);
+      fetchImages({ page: 1, q: text, ...filters }, false);
     }
-
-    if (text == "") {
-      // search for the text
-      page = 1;
+    if (text === "") {
       searchInputRef?.current?.clear();
       setImages([]);
-      setActiveCategory(null); // clear category when searching
-      fetchImages({ page, ...filters }, false);
+      setActiveCategory(null);
+      fetchImages({ page: 1, ...filters }, false);
     }
   };
 
@@ -145,65 +148,23 @@ const HomeScreen = () => {
     searchInputRef?.current?.clear();
   };
 
-  const handleScroll = (event) => {
-    // console.log("scroll event fired");
-    const contentHeight = event.nativeEvent.contentSize.height;
-    const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
-    const scrollOffset = event.nativeEvent.contentOffset.y;
-    const bottomPosition = contentHeight - scrollViewHeight;
+  const handleLoadMore = useCallback(() => {
+    if (isLoadingRef.current || noMoreResults) return;
+    const nextPage = pageRef.current + 1;
+    pageRef.current = nextPage;
+    const params = { page: nextPage, ...filters };
+    if (activeCategory) params.category = activeCategory;
+    if (search) params.q = search;
+    fetchImages(params, true);
+  }, [activeCategory, search, filters, fetchImages, noMoreResults]);
 
-    if (scrollOffset >= bottomPosition - 1) {
-      if (!isEndReached) {
-        setIsEndReached(true);
-        console.log("Reached the bottom of ScrollView");
+  const handleScrollUp = useCallback(() => {
+    listRef?.current?.scrollToOffset?.({ offset: 0, animated: true });
+  }, []);
 
-        // fetch more images
-        ++page;
-        let params = {
-          page,
-          ...filters,
-        };
-        if (activeCategory) params.category = activeCategory;
-        if (search) params.q = search;
-        fetchImages(params);
-      } else if (isEndReached) {
-        setIsEndReached(false);
-      }
-    }
-  };
-
-  const handleScrollUp = () => {
-    scrollRef?.current?.scrollTo({
-      y: 0,
-      animated: true,
-    });
-  };
-
-  // console.log("Active Category", activeCategory);
-  console.log("Filters", filters);
-  return (
-    <View style={[styles.container, { paddingTop }]}>
-      {/* header */}
-      <View style={styles.header}>
-        <Pressable onPress={handleScrollUp}>
-          <Text style={styles.title}>Walle</Text>
-        </Pressable>
-        <Pressable onPress={openFiltersModal}>
-          <FontAwesome6
-            name="bars-staggered"
-            size={22}
-            color={theme.colors.neutral(0.7)}
-          />
-        </Pressable>
-      </View>
-
-      <ScrollView
-        onScroll={handleScroll}
-        scrollEventThrottle={5} // how often scroll event will fire while scrolling (in ms)
-        ref={scrollRef}
-        contentContainerStyle={{ gap: 15 }}
-      >
-        {/* search bar */}
+  const listHeaderComponent = useCallback(
+    () => (
+      <View style={styles.listHeader}>
         <View style={styles.searchBar}>
           <View style={styles.searchIcon}>
             <Feather
@@ -212,29 +173,22 @@ const HomeScreen = () => {
               color={theme.colors.neutral(0.4)}
             />
           </View>
-
           <TextInput
             placeholder="Search for Photos ..."
             style={styles.searchInput}
             ref={searchInputRef}
-            // value={search}
             onChangeText={handleSearchDebounce}
           />
-          {search && (
-            <Pressable
-              onPress={() => handleSearch("")}
-              style={styles.closeIcon}
-            >
+          {search ? (
+            <Pressable onPress={() => handleSearch("")} style={styles.closeIcon}>
               <Ionicons
                 name="close"
                 size={24}
                 color={theme.colors.neutral(0.6)}
               />
             </Pressable>
-          )}
+          ) : null}
         </View>
-
-        {/* Categories */}
 
         <View style={styles.categories}>
           <Categories
@@ -243,59 +197,104 @@ const HomeScreen = () => {
           />
         </View>
 
-        {/* applied filters  */}
-        {filters && (
+        {filters && Object.keys(filters).length > 0 ? (
           <View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.filters}
             >
-              {Object.keys(filters).map((key, index) => {
-                return (
-                  <View key={key} style={styles.filterItem}>
-                    {key === "colors" ? (
-                      <View
-                        style={{
-                          width: 30,
-                          height: 20,
-                          borderRadius: 7,
-                          backgroundColor: filters[key],
-                        }}
-                      />
-                    ) : (
-                      <Text style={styles.filterItemText}>{filters[key]}</Text>
-                    )}
-                    <Pressable
-                      style={styles.filterCloseIcon}
-                      onPress={() => clearThisFilter(key)}
-                    >
-                      <Ionicons
-                        name="close"
-                        size={14}
-                        color={theme.colors.neutral(0.9)}
-                      />
-                    </Pressable>
-                  </View>
-                );
-              })}
+              {Object.keys(filters).map((key) => (
+                <View key={key} style={styles.filterItem}>
+                  {key === "colors" ? (
+                    <View
+                      style={{
+                        width: 30,
+                        height: 20,
+                        borderRadius: 7,
+                        backgroundColor: filters[key],
+                      }}
+                    />
+                  ) : (
+                    <Text style={styles.filterItemText}>{filters[key]}</Text>
+                  )}
+                  <Pressable
+                    style={styles.filterCloseIcon}
+                    onPress={() => clearThisFilter(key)}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={14}
+                      color={theme.colors.neutral(0.9)}
+                    />
+                  </Pressable>
+                </View>
+              ))}
             </ScrollView>
           </View>
-        )}
+        ) : null}
+      </View>
+    ),
+    [
+      search,
+      activeCategory,
+      filters,
+      handleSearchDebounce,
+      handleChangeCategory,
+      clearThisFilter,
+    ]
+  );
 
-        {/* images in masonry grid */}
-
-        <View>{images.length > 0 && <ImageGrid images={images} />}</View>
-
-        {/* loading */}
-        <View
-          style={{ marginBottom: 70, marginTop: images.length > 0 ? 10 : 70 }}
-        >
+  const listFooterComponent = useCallback(
+    () => (
+      <View style={[styles.listFooter, images.length > 0 && styles.listFooterWithContent]}>
+        {isLoading ? (
           <ActivityIndicator size="large" />
-        </View>
-      </ScrollView>
+        ) : noMoreResults ? (
+          <Text style={styles.noMoreResultsText}>
+            {images.length > 0 ? "No more results found" : "No results found"}
+          </Text>
+        ) : null}
+      </View>
+    ),
+    [images.length, isLoading, noMoreResults]
+  );
 
-      {/* filters modal */}
+  return (
+    <View style={[styles.container, { paddingTop }]}>
+      <View style={styles.header}>
+        <Pressable onPress={handleScrollUp}>
+          <Text style={styles.title}>VimoraWalls</Text>
+        </Pressable>
+        <View style={styles.headerIcons}>
+          <Pressable onPress={() => router.push("/favorites")} style={styles.headerIconBtn}>
+            <Ionicons name="heart-outline" size={24} color={theme.colors.neutral(0.7)} />
+          </Pressable>
+          <Pressable onPress={openFiltersModal} style={styles.headerIconBtn}>
+            <FontAwesome6
+              name="bars-staggered"
+              size={22}
+              color={theme.colors.neutral(0.7)}
+            />
+          </Pressable>
+        </View>
+      </View>
+
+      <ImageGrid
+        images={images}
+        listRef={listRef}
+        ListHeaderComponent={listHeaderComponent}
+        ListFooterComponent={listFooterComponent}
+        onEndReached={handleLoadMore}
+        onImagePress={(item) => setSelectedImage(item)}
+      />
+
+      <FullScreenImageView
+        visible={!!selectedImage}
+        image={selectedImage}
+        onClose={() => setSelectedImage(null)}
+      />
+
       <FiltersModal
         modalRef={modalRef}
         filters={filters}
@@ -313,13 +312,35 @@ export default HomeScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  listHeader: {
     gap: 15,
+  },
+  listFooter: {
+    marginBottom: 70,
+    marginTop: 70,
+  },
+  listFooterWithContent: {
+    marginTop: 10,
+  },
+  noMoreResultsText: {
+    fontSize: hp(2.8),
+    color: theme.colors.neutral(0.6),
   },
   header: {
     marginHorizontal: wp(8),
+    marginBottom: hp(2),
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  headerIcons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerIconBtn: {
+    padding: 4,
   },
   title: {
     fontSize: hp(4),
@@ -354,6 +375,7 @@ const styles = StyleSheet.create({
   },
   filters: {
     paddingHorizontal: wp(4),
+    marginBottom: hp(2),
     gap: 10,
   },
   filterItem: {

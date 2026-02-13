@@ -1,23 +1,24 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet } from "react-native";
 import React from "react";
 import { Stack } from "expo-router";
-
 import {
-  BottomSheetModal,
   BottomSheetModalProvider,
-  BottomSheetView,
 } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { LikedImagesProvider } from "../context/LikedImagesContext";
 
 const Layout = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="home/index" options={{ headerShown: false }} />
-        </Stack>
-      </BottomSheetModalProvider>
+      <LikedImagesProvider>
+        <BottomSheetModalProvider>
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="home/index" options={{ headerShown: false }} />
+            <Stack.Screen name="favorites/index" options={{ headerShown: false }} />
+          </Stack>
+        </BottomSheetModalProvider>
+      </LikedImagesProvider>
     </GestureHandlerRootView>
   );
 };

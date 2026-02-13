@@ -39,7 +39,7 @@ const WelcomeScreen = () => {
             entering={FadeInDown.delay(400).springify()}
             style={styles.title}
           >
-            Walle
+            VimoraWalls
           </Animated.Text>
           <Animated.Text
             entering={FadeInDown.delay(500).springify()}
@@ -53,7 +53,7 @@ const WelcomeScreen = () => {
               onPress={() => router.push("home")}
               style={styles.startButton}
             >
-              <Text style={styles.startText}>Start Exploring</Text>
+              <Text style={styles.startText}>Discover Now</Text>
             </Pressable>
           </Animated.View>
         </View>

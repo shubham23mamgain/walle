@@ -1,28 +1,31 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import React from "react";
+import React, { useMemo } from "react";
 import { Image } from "expo-image";
 import { getImageSize, wp } from "../helpers/common";
 import { theme } from "../constants/theme";
 
-const ImageCard = ({ item, index, columns }) => {
-  const isLastInRow = () => {
-    return (index + 1) % columns === 0;
-  };
+const ImageCard = React.memo(({ item, index, columns, onPress }) => {
+  const isLastInRow = (index + 1) % columns === 0;
+  const imageHeight = useMemo(() => {
+    const { imageHeight: height, imageWidth: width } = item;
+    return getImageSize(height, width);
+  }, [item?.imageHeight, item?.imageWidth]);
 
-  const getImageHeight = () => {
-    let { imageHeight: height, imageWidth: width } = item;
-    return { height: getImageSize(height, width) };
-  };
   return (
-    <Pressable style={[styles.imageWrapper, !isLastInRow() && styles.spacing]}>
+    <Pressable
+      style={[styles.imageWrapper, !isLastInRow && styles.spacing]}
+      onPress={() => onPress?.(item)}
+    >
       <Image
-        style={[styles.image, getImageHeight()]}
+        style={[styles.image, { height: imageHeight }]}
         source={item?.webformatURL}
         transition={100}
       />
     </Pressable>
   );
-};
+});
+
+ImageCard.displayName = "ImageCard";
 
 export default ImageCard;
 
