@@ -70,9 +70,7 @@ const FiltersModal = ({
               return (
                 <Animated.View
                   key={sectionName}
-                  entering={FadeInDown.delay(index * 100 + 100)
-                    .springify()
-                    .damping(11)}
+                  entering={FadeInDown.delay(index * 50).duration(220)}
                 >
                   <SectionView
                     title={title}
@@ -88,7 +86,7 @@ const FiltersModal = ({
             })}
 
             <Animated.View
-              entering={FadeInDown.delay(800).springify().damping(11)}
+              entering={FadeInDown.delay(200).duration(220)}
               style={styles.buttons}
             >
               <Pressable style={styles.resetButton} onPress={handleReset}>
