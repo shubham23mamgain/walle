@@ -11,20 +11,19 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather, FontAwesome6, Ionicons } from "@expo/vector-icons";
-import { theme } from "../../constants/theme";
-import { hp, wp } from "../../helpers/common";
-import Categories from "../../components/categories";
-import { apiCall } from "../../api";
-import ImageGrid from "../../components/imageGrid";
+import { theme } from "../../../constants/theme";
+import { hp, wp } from "../../../helpers/common";
+import Categories from "../../../components/categories";
+import { apiCall } from "../../../api";
+import ImageGrid from "../../../components/imageGrid";
 import { debounce } from "lodash";
-import FiltersModal from "../../components/filtersModal";
-import FullScreenImageView from "../../components/FullScreenImageView";
+import FiltersModal from "../../../components/filtersModal";
+import FullScreenImageView from "../../../components/FullScreenImageView";
 
 const HomeScreen = () => {
   const router = useRouter();
   const { top } = useSafeAreaInsets();
   const [search, setSearch] = useState("");
-  const searchInputRef = useRef(null);
   const modalRef = useRef(null);
   const listRef = useRef(null);
   const paddingTop = top > 0 ? top + 10 : 30;
@@ -117,7 +116,7 @@ const HomeScreen = () => {
 
   const handleChangeCategory = (cat) => {
     setActiveCategory(cat);
-    clearSearch();
+    setSearch("");
     setImages([]);
     pageRef.current = 1;
     const params = { page: 1, ...filters };
@@ -134,7 +133,6 @@ const HomeScreen = () => {
       fetchImages({ page: 1, q: text, ...filters }, false);
     }
     if (text === "") {
-      searchInputRef?.current?.clear();
       setImages([]);
       setActiveCategory(null);
       fetchImages({ page: 1, ...filters }, false);
@@ -143,9 +141,17 @@ const HomeScreen = () => {
 
   const handleSearchDebounce = useCallback(debounce(handleSearch, 400), []);
 
+  const onSearchChange = useCallback(
+    (text) => {
+      setSearch(text);
+      handleSearchDebounce(text);
+    },
+    [handleSearchDebounce]
+  );
+
   const clearSearch = () => {
     setSearch("");
-    searchInputRef?.current?.clear();
+    handleSearch("");
   };
 
   const handleLoadMore = useCallback(() => {
@@ -162,30 +168,55 @@ const HomeScreen = () => {
     listRef?.current?.scrollToOffset?.({ offset: 0, animated: true });
   }, []);
 
-  const listHeaderComponent = useCallback(
+  const listFooterComponent = useCallback(
     () => (
+      <View style={[styles.listFooter, images.length > 0 && styles.listFooterWithContent]}>
+        {isLoading ? (
+          <ActivityIndicator size="large" />
+        ) : noMoreResults ? (
+          <Text style={styles.noMoreResultsText}>
+            {images.length > 0 ? "No more results found" : "No results found"}
+          </Text>
+        ) : null}
+      </View>
+    ),
+    [images.length, isLoading, noMoreResults]
+  );
+
+  return (
+    <View style={[styles.container, { paddingTop }]}>
+      <View style={styles.header}>
+        <Pressable onPress={handleScrollUp}>
+          <Text style={styles.title}>VimoraWalls</Text>
+        </Pressable>
+        <View style={styles.headerIcons}>
+          <Pressable onPress={() => router.push("/favorites")} style={styles.headerIconBtn}>
+            <Ionicons name="heart-outline" size={24} color={theme.colors.neutral(0.7)} />
+          </Pressable>
+          <Pressable onPress={openFiltersModal} style={styles.headerIconBtn}>
+            <FontAwesome6
+              name="bars-staggered"
+              size={22}
+              color={theme.colors.neutral(0.7)}
+            />
+          </Pressable>
+        </View>
+      </View>
+
       <View style={styles.listHeader}>
         <View style={styles.searchBar}>
           <View style={styles.searchIcon}>
-            <Feather
-              name="search"
-              size={24}
-              color={theme.colors.neutral(0.4)}
-            />
+            <Feather name="search" size={24} color={theme.colors.neutral(0.4)} />
           </View>
           <TextInput
             placeholder="Search for Photos ..."
             style={styles.searchInput}
-            ref={searchInputRef}
-            onChangeText={handleSearchDebounce}
+            value={search}
+            onChangeText={onSearchChange}
           />
           {search ? (
             <Pressable onPress={() => handleSearch("")} style={styles.closeIcon}>
-              <Ionicons
-                name="close"
-                size={24}
-                color={theme.colors.neutral(0.6)}
-              />
+              <Ionicons name="close" size={24} color={theme.colors.neutral(0.6)} />
             </Pressable>
           ) : null}
         </View>
@@ -234,56 +265,10 @@ const HomeScreen = () => {
           </View>
         ) : null}
       </View>
-    ),
-    [
-      search,
-      activeCategory,
-      filters,
-      handleSearchDebounce,
-      handleChangeCategory,
-      clearThisFilter,
-    ]
-  );
-
-  const listFooterComponent = useCallback(
-    () => (
-      <View style={[styles.listFooter, images.length > 0 && styles.listFooterWithContent]}>
-        {isLoading ? (
-          <ActivityIndicator size="large" />
-        ) : noMoreResults ? (
-          <Text style={styles.noMoreResultsText}>
-            {images.length > 0 ? "No more results found" : "No results found"}
-          </Text>
-        ) : null}
-      </View>
-    ),
-    [images.length, isLoading, noMoreResults]
-  );
-
-  return (
-    <View style={[styles.container, { paddingTop }]}>
-      <View style={styles.header}>
-        <Pressable onPress={handleScrollUp}>
-          <Text style={styles.title}>VimoraWalls</Text>
-        </Pressable>
-        <View style={styles.headerIcons}>
-          <Pressable onPress={() => router.push("/favorites")} style={styles.headerIconBtn}>
-            <Ionicons name="heart-outline" size={24} color={theme.colors.neutral(0.7)} />
-          </Pressable>
-          <Pressable onPress={openFiltersModal} style={styles.headerIconBtn}>
-            <FontAwesome6
-              name="bars-staggered"
-              size={22}
-              color={theme.colors.neutral(0.7)}
-            />
-          </Pressable>
-        </View>
-      </View>
 
       <ImageGrid
         images={images}
         listRef={listRef}
-        ListHeaderComponent={listHeaderComponent}
         ListFooterComponent={listFooterComponent}
         onEndReached={handleLoadMore}
         onImagePress={(item) => setSelectedImage(item)}

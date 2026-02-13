@@ -1,13 +1,17 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import React, { useMemo } from "react";
-import { BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+  Platform,
+} from "react-native";
+import React, { useCallback, useImperativeHandle, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
-import Animated, {
-  Extrapolation,
-  FadeInDown,
-  interpolate,
-  useAnimatedStyle,
-} from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { theme } from "../constants/theme";
 import { hp } from "../helpers/common";
 import { ColorFilterView, CommonFilterView, SectionView } from "./filterViews";
@@ -22,75 +26,122 @@ const FiltersModal = ({
   filters,
   setFilters,
 }) => {
-  const snapPoints = useMemo(() => ["75%"], []);
+  const [visible, setVisible] = useState(false);
 
-  const handleSheetChanges = () => {};
+  useImperativeHandle(modalRef, () => ({
+    present: () => setVisible(true),
+    close: () => setVisible(false),
+  }), []);
+
+  const handleClose = useCallback(() => {
+    setVisible(false);
+    onClose?.();
+  }, [onClose]);
+
+  const handleApply = useCallback(() => {
+    onApply?.();
+    setVisible(false);
+  }, [onApply]);
+
+  const handleReset = useCallback(() => {
+    onReset?.();
+    setVisible(false);
+  }, [onReset]);
+
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+
+  const modalHeight = Math.min(
+    Math.max(windowHeight * 0.75, 380),
+    Platform.OS === "ios" ? 680 : 700
+  );
+  const sheetPaddingBottom = Math.max(insets.bottom, hp(2));
+  const isLargeScreen = windowWidth >= 768;
+
   return (
-    <BottomSheetModal
-      ref={modalRef}
-      index={0}
-      snapPoints={snapPoints}
-      backdropComponent={CustomBackdrop}
-      enablePanDownToClose={true}
-      onChange={handleSheetChanges}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={handleClose}
+      statusBarTranslucent
+      supportedOrientations={["portrait", "landscape"]}
     >
-      <BottomSheetView style={styles.contentContainer}>
-        <View style={styles.content}>
-          <Text style={styles.filterText}>Filters</Text>
-          {Object.keys(sections).map((sectionName, index) => {
-            let sectionView = sections[sectionName];
-            let sectionData = data.filters[sectionName];
-            let title = capitalize(sectionName);
-            return (
-              <Animated.View
-                key={sectionName}
-                entering={FadeInDown.delay(index * 100 + 100)
-                  .springify()
-                  .damping(11)}
-              >
-                <SectionView
-                  title={title}
-                  content={sectionView({
-                    data: sectionData,
-                    filters,
-                    setFilters,
-                    filterName: sectionName,
-                  })}
-                />
-              </Animated.View>
-            );
-          })}
-
-          {/* actions */}
-          <Animated.View
-            entering={FadeInDown.delay(800).springify().damping(11)}
-            style={styles.buttons}
+      <View style={styles.modalContainer}>
+        <Pressable style={styles.backdrop} onPress={handleClose}>
+          <BlurView style={StyleSheet.absoluteFill} tint="dark" intensity={25} />
+        </Pressable>
+        <View
+          style={[
+            styles.sheet,
+            { height: modalHeight },
+            isLargeScreen && styles.sheetLargeScreen,
+          ]}
+        >
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={[
+              styles.contentScroll,
+              { paddingBottom: sheetPaddingBottom },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <Pressable style={styles.resetButton} onPress={onReset}>
-              <Text
-                style={[
-                  styles.buttonText,
-                  { color: theme.colors.neutral(0.9) },
-                ]}
-              >
-                Reset
-              </Text>
-            </Pressable>
+            <View style={styles.content}>
+              <Text style={styles.filterText}>Filters</Text>
+              {Object.keys(sections).map((sectionName, index) => {
+                const sectionView = sections[sectionName];
+                const sectionData = data.filters[sectionName];
+                const title = capitalize(sectionName);
+                return (
+                  <Animated.View
+                    key={sectionName}
+                    entering={FadeInDown.delay(index * 50).duration(220)}
+                  >
+                    <SectionView
+                      title={title}
+                      content={sectionView({
+                        data: sectionData,
+                        filters,
+                        setFilters,
+                        filterName: sectionName,
+                      })}
+                    />
+                  </Animated.View>
+                );
+              })}
 
-            <Pressable style={styles.applyButton} onPress={onApply}>
-              <Text
-                style={[
-                  styles.buttonText,
-                  { color: theme.colors.white },
-                ]}
+              <Animated.View
+                entering={FadeInDown.delay(200).duration(220)}
+                style={styles.buttons}
               >
-                Apply
-              </Text>
-            </Pressable>
-          </Animated.View>
+                <Pressable style={styles.resetButton} onPress={handleReset}>
+                  <Text
+                    style={[
+                      styles.buttonText,
+                      { color: theme.colors.neutral(0.9) },
+                    ]}
+                  >
+                    Reset
+                  </Text>
+                </Pressable>
+
+                <Pressable style={styles.applyButton} onPress={handleApply}>
+                  <Text
+                    style={[
+                      styles.buttonText,
+                      { color: theme.colors.white },
+                    ]}
+                  >
+                    Apply
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            </View>
+          </ScrollView>
         </View>
-      </BottomSheetView>
-    </BottomSheetModal>
+      </View>
+    </Modal>
   );
 };
 
@@ -101,46 +152,44 @@ const sections = {
   type: (props) => <CommonFilterView {...props} />,
 };
 
-const CustomBackdrop = ({ animatedIndex, style }) => {
-  const containerAnimatedStyle = useAnimatedStyle(() => {
-    let opacity = interpolate(
-      animatedIndex.value,
-      [-1, 0],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return {
-      opacity,
-    };
-  });
-  const containerStyle = [
-    StyleSheet.absoluteFill,
-    style,
-    styles.overlay,
-    containerAnimatedStyle,
-  ];
-  return (
-    <Animated.View style={containerStyle}>
-      {/* blur   */}
-      <BlurView style={StyleSheet.absoluteFill} tint="dark" intensity={25} />
-    </Animated.View>
-  );
-};
 export default FiltersModal;
 
 const styles = StyleSheet.create({
-  contentContainer: {
-    flex: 1,
-    alignItems: "center",
+  modalContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "flex-end",
   },
-  overlay: {
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  sheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    backgroundColor: theme.colors.white,
+    borderTopLeftRadius: theme.radius.xl,
+    borderTopRightRadius: theme.radius.xl,
+    overflow: "hidden",
+  },
+  sheetLargeScreen: {
+    alignSelf: "center",
+    maxWidth: 520,
+    width: "100%",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  contentScroll: {
+    flexGrow: 1,
+    paddingTop: hp(1),
   },
   content: {
     gap: 15,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    // width: "100%",
   },
   filterText: {
     fontSize: hp(4),
@@ -149,7 +198,6 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   buttons: {
-    // flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -163,7 +211,6 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     borderCurve: "continuous",
   },
-
   resetButton: {
     flex: 1,
     backgroundColor: theme.colors.neutral(0.03),
