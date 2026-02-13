@@ -50,7 +50,7 @@ const WelcomeScreen = () => {
 
           <Animated.View entering={FadeInDown.delay(600).springify()}>
             <Pressable
-              onPress={() => router.push("home")}
+              onPress={() => router.push("/(main)/home")}
               style={styles.startButton}
             >
               <Text style={styles.startText}>Discover Now</Text>

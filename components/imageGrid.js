@@ -1,6 +1,6 @@
 import { StyleSheet, View } from "react-native";
 import React, { useCallback } from "react";
-import { MasonryFlashList } from "@shopify/flash-list";
+import { FlashList } from "@shopify/flash-list";
 import ImageCard from "./imageCard";
 import { getColumnCount, hp, wp } from "../helpers/common";
 
@@ -32,14 +32,13 @@ const ImageGrid = React.memo(
 
     return (
       <View style={styles.container}>
-        <MasonryFlashList
+        <FlashList
           ref={listRef}
           data={images}
           numColumns={COLUMNS}
+          masonry
           initialNumToRender={15}
           maxToRenderPerBatch={20}
-          windowSize={5}
-          removeClippedSubviews={true}
           contentContainerStyle={styles.listContainerStyle}
           ListHeaderComponent={ListHeaderComponent}
           ListFooterComponent={ListFooterComponent}
@@ -47,7 +46,6 @@ const ImageGrid = React.memo(
           onEndReachedThreshold={onEndReachedThreshold}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
-          estimatedItemSize={200}
         />
       </View>
     );

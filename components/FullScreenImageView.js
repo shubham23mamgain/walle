@@ -14,7 +14,7 @@ import {
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import { Ionicons, Feather, FontAwesome6 } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
 import { theme } from "../constants/theme";

@@ -3,11 +3,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { theme } from "../../constants/theme";
-import { hp, wp } from "../../helpers/common";
-import { useLikedImages } from "../../context/LikedImagesContext";
-import ImageGrid from "../../components/imageGrid";
-import FullScreenImageView from "../../components/FullScreenImageView";
+import { theme } from "../../../constants/theme";
+import { hp, wp } from "../../../helpers/common";
+import { useLikedImages } from "../../../context/LikedImagesContext";
+import ImageGrid from "../../../components/imageGrid";
+import FullScreenImageView from "../../../components/FullScreenImageView";
 
 export default function FavoritesScreen() {
   const router = useRouter();
