@@ -38,27 +38,42 @@ export default function FullScreenImageView({ visible, image, onClose }) {
     if (!image?.webformatURL) return;
     setDownloading(true);
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
+      const writeOnly = Platform.OS === "android";
+      const { status } = await MediaLibrary.requestPermissionsAsync(writeOnly);
       if (status !== "granted") {
         Alert.alert(
           "Permission needed",
-          "Allow access to your photo library to save this image."
+          Platform.OS === "android"
+            ? "Allow saving to your gallery to save this image."
+            : "Allow access to your photo library to save this image."
         );
         return;
       }
       const filename = `vimorawalls_${image.id}.jpg`;
       const path = `${FileSystem.documentDirectory}${filename}`;
       await FileSystem.downloadAsync(image.webformatURL, path);
-      const asset = await MediaLibrary.createAssetAsync(path);
-      const album = await MediaLibrary.getAlbumAsync("VimoraWalls");
-      if (album) {
-        await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+      const localUri = path.startsWith("file://") ? path : `file://${path}`;
+      if (Platform.OS === "android") {
+        await MediaLibrary.saveToLibraryAsync(localUri);
       } else {
-        await MediaLibrary.createAlbumAsync("VimoraWalls", asset, false);
+        const asset = await MediaLibrary.createAssetAsync(localUri);
+        const album = await MediaLibrary.getAlbumAsync("VimoraWalls");
+        if (album) {
+          await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+        } else {
+          await MediaLibrary.createAlbumAsync("VimoraWalls", asset, false);
+        }
       }
       Alert.alert("Saved", "Image saved to your gallery.");
     } catch (e) {
-      Alert.alert("Error", "Could not save image. Please try again.");
+      const message = e?.message || e?.toString?.() || "Unknown error";
+      if (__DEV__) console.warn("Save image error:", message, e);
+      Alert.alert(
+        "Could not save image",
+        Platform.OS === "android"
+          ? "Make sure the app has permission to save to your gallery, then try again."
+          : "Please try again."
+      );
     } finally {
       setDownloading(false);
     }

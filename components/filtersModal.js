@@ -1,12 +1,15 @@
 import {
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
+  Platform,
 } from "react-native";
 import React, { useCallback, useImperativeHandle, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { theme } from "../constants/theme";
@@ -45,8 +48,15 @@ const FiltersModal = ({
     setVisible(false);
   }, [onReset]);
 
-  const { height: windowHeight } = useWindowDimensions();
-  const modalHeight = Math.min(windowHeight * 0.75, 600);
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+
+  const modalHeight = Math.min(
+    Math.max(windowHeight * 0.75, 380),
+    Platform.OS === "ios" ? 680 : 700
+  );
+  const sheetPaddingBottom = Math.max(insets.bottom, hp(2));
+  const isLargeScreen = windowWidth >= 768;
 
   return (
     <Modal
@@ -54,67 +64,83 @@ const FiltersModal = ({
       transparent
       animationType="slide"
       onRequestClose={handleClose}
+      statusBarTranslucent
+      supportedOrientations={["portrait", "landscape"]}
     >
       <View style={styles.modalContainer}>
         <Pressable style={styles.backdrop} onPress={handleClose}>
           <BlurView style={StyleSheet.absoluteFill} tint="dark" intensity={25} />
         </Pressable>
-        <View style={[styles.sheet, { height: modalHeight }]}>
-          <View style={styles.sheetInner}>
-          <View style={styles.content}>
-            <Text style={styles.filterText}>Filters</Text>
-            {Object.keys(sections).map((sectionName, index) => {
-              const sectionView = sections[sectionName];
-              const sectionData = data.filters[sectionName];
-              const title = capitalize(sectionName);
-              return (
-                <Animated.View
-                  key={sectionName}
-                  entering={FadeInDown.delay(index * 50).duration(220)}
-                >
-                  <SectionView
-                    title={title}
-                    content={sectionView({
-                      data: sectionData,
-                      filters,
-                      setFilters,
-                      filterName: sectionName,
-                    })}
-                  />
-                </Animated.View>
-              );
-            })}
+        <View
+          style={[
+            styles.sheet,
+            { height: modalHeight },
+            isLargeScreen && styles.sheetLargeScreen,
+          ]}
+        >
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={[
+              styles.contentScroll,
+              { paddingBottom: sheetPaddingBottom },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.content}>
+              <Text style={styles.filterText}>Filters</Text>
+              {Object.keys(sections).map((sectionName, index) => {
+                const sectionView = sections[sectionName];
+                const sectionData = data.filters[sectionName];
+                const title = capitalize(sectionName);
+                return (
+                  <Animated.View
+                    key={sectionName}
+                    entering={FadeInDown.delay(index * 50).duration(220)}
+                  >
+                    <SectionView
+                      title={title}
+                      content={sectionView({
+                        data: sectionData,
+                        filters,
+                        setFilters,
+                        filterName: sectionName,
+                      })}
+                    />
+                  </Animated.View>
+                );
+              })}
 
-            <Animated.View
-              entering={FadeInDown.delay(200).duration(220)}
-              style={styles.buttons}
-            >
-              <Pressable style={styles.resetButton} onPress={handleReset}>
-                <Text
-                  style={[
-                    styles.buttonText,
-                    { color: theme.colors.neutral(0.9) },
-                  ]}
-                >
-                  Reset
-                </Text>
-              </Pressable>
+              <Animated.View
+                entering={FadeInDown.delay(200).duration(220)}
+                style={styles.buttons}
+              >
+                <Pressable style={styles.resetButton} onPress={handleReset}>
+                  <Text
+                    style={[
+                      styles.buttonText,
+                      { color: theme.colors.neutral(0.9) },
+                    ]}
+                  >
+                    Reset
+                  </Text>
+                </Pressable>
 
-              <Pressable style={styles.applyButton} onPress={handleApply}>
-                <Text
-                  style={[
-                    styles.buttonText,
-                    { color: theme.colors.white },
-                  ]}
-                >
-                  Apply
-                </Text>
-              </Pressable>
-            </Animated.View>
-          </View>
+                <Pressable style={styles.applyButton} onPress={handleApply}>
+                  <Text
+                    style={[
+                      styles.buttonText,
+                      { color: theme.colors.white },
+                    ]}
+                  >
+                    Apply
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            </View>
+          </ScrollView>
         </View>
       </View>
-    </View>
     </Modal>
   );
 };
@@ -130,7 +156,7 @@ export default FiltersModal;
 
 const styles = StyleSheet.create({
   modalContainer: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "flex-end",
   },
   backdrop: {
@@ -138,14 +164,27 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   sheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     width: "100%",
     backgroundColor: theme.colors.white,
     borderTopLeftRadius: theme.radius.xl,
     borderTopRightRadius: theme.radius.xl,
     overflow: "hidden",
   },
-  sheetInner: {
+  sheetLargeScreen: {
+    alignSelf: "center",
+    maxWidth: 520,
+    width: "100%",
+  },
+  scrollView: {
     flex: 1,
+  },
+  contentScroll: {
+    flexGrow: 1,
+    paddingTop: hp(1),
   },
   content: {
     gap: 15,

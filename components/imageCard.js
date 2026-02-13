@@ -29,6 +29,9 @@ ImageCard.displayName = "ImageCard";
 
 export default ImageCard;
 
+const COLUMN_GAP = wp(3);
+const ROW_GAP = wp(2.5);
+
 const styles = StyleSheet.create({
   image: {
     height: 300,
@@ -39,9 +42,10 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.xl,
     borderCurve: "continuous",
     overflow: "hidden",
-    marginBottom: wp(2),
+    marginBottom: ROW_GAP,
   },
   spacing: {
-    marginRight: wp(2),
+    marginRight: COLUMN_GAP,
+    marginLeft:  COLUMN_GAP,
   },
 });
