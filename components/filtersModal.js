@@ -14,7 +14,7 @@ import { BlurView } from "expo-blur";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { theme } from "../constants/theme";
 import { hp } from "../helpers/common";
-import { ColorFilterView, CommonFilterView, SectionView } from "./filterViews";
+import { ColorFilterView, CommonFilterView, IdNameFilterView, SectionView } from "./filterViews";
 import { capitalize } from "lodash";
 import { data } from "../constants/data";
 
@@ -25,8 +25,10 @@ const FiltersModal = ({
   onReset,
   filters,
   setFilters,
+  filterOptions = {},
 }) => {
   const [visible, setVisible] = useState(false);
+  const { wallpaperTypes = [], screenTypes = [], colors = [] } = filterOptions;
 
   useImperativeHandle(modalRef, () => ({
     present: () => setVisible(true),
@@ -91,8 +93,18 @@ const FiltersModal = ({
               <Text style={styles.filterText}>Filters</Text>
               {Object.keys(sections).map((sectionName, index) => {
                 const sectionView = sections[sectionName];
-                const sectionData = data.filters[sectionName];
-                const title = capitalize(sectionName);
+                const sectionData =
+                  sectionName === "order"
+                    ? data.filters.order
+                    : sectionName === "wallpaperType"
+                    ? wallpaperTypes
+                    : sectionName === "screenType"
+                    ? screenTypes
+                    : sectionName === "dominantColor"
+                    ? colors
+                    : [];
+                const title =
+                  sectionName === "dominantColor" ? "Color" : capitalize(sectionName);
                 return (
                   <Animated.View
                     key={sectionName}
@@ -147,9 +159,9 @@ const FiltersModal = ({
 
 const sections = {
   order: (props) => <CommonFilterView {...props} />,
-  orientation: (props) => <CommonFilterView {...props} />,
-  colors: (props) => <ColorFilterView {...props} />,
-  type: (props) => <CommonFilterView {...props} />,
+  wallpaperType: (props) => <IdNameFilterView {...props} />,
+  screenType: (props) => <IdNameFilterView {...props} />,
+  dominantColor: (props) => <ColorFilterView {...props} />,
 };
 
 export default FiltersModal;

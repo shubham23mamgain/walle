@@ -1,23 +1,23 @@
 import { StyleSheet, Text, View, FlatList, Pressable } from "react-native";
 import React from "react";
-import { data } from "../constants/data";
 import { hp, wp } from "../helpers/common";
 import { theme } from "../constants/theme";
 import Animated, { FadeIn } from "react-native-reanimated";
 
-const Categories = ({ activeCategory, handleChangeCategory }) => {
+const Categories = ({ categories = [], activeCategory, handleChangeCategory }) => {
   return (
     <FlatList
-      data={data.categories}
+      data={categories}
       horizontal
       contentContainerStyle={styles.flatlistContainer}
       showsHorizontalScrollIndicator={false}
-      keyExtractor={(item) => item}
+      keyExtractor={(item) => item.slug}
       renderItem={({ item, index }) => (
         <CategoryItem
-          title={item}
+          slug={item.slug}
+          name={item.name}
           index={index}
-          isActive={activeCategory == item}
+          isActive={activeCategory === item.slug}
           handleChangeCategory={handleChangeCategory}
         />
       )}
@@ -25,7 +25,7 @@ const Categories = ({ activeCategory, handleChangeCategory }) => {
   );
 };
 
-const CategoryItem = ({ title, isActive, handleChangeCategory, index }) => {
+const CategoryItem = ({ slug, name, isActive, handleChangeCategory, index }) => {
   let color = isActive ? theme.colors.white : theme.colors.neutral(0.8);
   let backgroundColor = isActive
     ? theme.colors.neutral(0.8)
@@ -35,10 +35,10 @@ const CategoryItem = ({ title, isActive, handleChangeCategory, index }) => {
       entering={FadeIn.delay(index * 150).duration(1000)}
     >
       <Pressable
-        onPress={() => handleChangeCategory(isActive ? null : title)}
+        onPress={() => handleChangeCategory(isActive ? null : slug)}
         style={[styles.category, { backgroundColor }]}
       >
-        <Text style={[styles.title, { color }]}>{title}</Text>
+        <Text style={[styles.title, { color }]}>{name}</Text>
       </Pressable>
     </Animated.View>
   );

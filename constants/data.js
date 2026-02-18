@@ -1,44 +1,9 @@
-const categories = [
-  "backgrounds",
-  "fashion",
-  "nature",
-  "science",
-  "education",
-  "feelings",
-  "health",
-  "people",
-  "religion",
-  "places",
-  "animals",
-  "industry",
-  "computer",
-  "food",
-  "sports",
-  "transportation",
-  "travel",
-  "buildings",
-  "business",
-  "music",
-];
-
+/**
+ * Static filter options. wallpaperType, screenType, colors are loaded from API in Home
+ * and passed into FiltersModal as filterOptions.
+ */
 const filters = {
-  order: ["popular", "latest"],
-  orientation: ["all", "horizontal", "vertical"],
-  type: ["photo", "illustration", "vector"],
-  colors: [
-    "red",
-    "orange",
-    "yellow",
-    "green",
-    "turquoise",
-    "blue",
-
-    "pink",
-    "white",
-    "gray",
-    "black",
-    "brown",
-  ],
+  order: ["latest", "popular"],
 };
 
-export const data = { categories, filters };
+export const data = { filters };
