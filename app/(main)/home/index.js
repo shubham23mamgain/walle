@@ -14,11 +14,34 @@ import { Feather, FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { theme } from "../../../constants/theme";
 import { hp, wp } from "../../../helpers/common";
 import Categories from "../../../components/categories";
-import { apiCall } from "../../../api";
+import {
+  apiCall,
+  fetchCategories,
+  fetchWallpaperTypes,
+  fetchScreenTypes,
+  fetchColors,
+} from "../../../api";
 import ImageGrid from "../../../components/imageGrid";
 import { debounce } from "lodash";
 import FiltersModal from "../../../components/filtersModal";
 import FullScreenImageView from "../../../components/FullScreenImageView";
+
+const PER_PAGE = 25;
+
+/** Build API params from filters and active category (slug -> mainCategory id). */
+const buildParams = (filters, activeCategorySlug, categories, search, page) => {
+  const params = { page, limit: PER_PAGE };
+  if (search) params.search = search;
+  if (filters?.order) params.sort = filters.order;
+  if (filters?.wallpaperType) params.wallpaperType = filters.wallpaperType;
+  if (filters?.screenType) params.screenType = filters.screenType;
+  if (filters?.dominantColor) params.dominantColor = filters.dominantColor;
+  if (activeCategorySlug && categories?.length) {
+    const cat = categories.find((c) => c.slug === activeCategorySlug);
+    if (cat?._id) params.mainCategory = cat._id;
+  }
+  return params;
+};
 
 const HomeScreen = () => {
   const router = useRouter();
@@ -35,28 +58,63 @@ const HomeScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [noMoreResults, setNoMoreResults] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
-
-  const PER_PAGE = 25;
+  const [categories, setCategories] = useState([]);
+  const [filterOptions, setFilterOptions] = useState({
+    wallpaperTypes: [],
+    screenTypes: [],
+    colors: [],
+  });
 
   useEffect(() => {
-    fetchImages({ page: 1 }, false);
+    const params = buildParams(filters, activeCategory, categories, search, 1);
+    fetchImages(params, false);
   }, []);
 
-  const fetchImages = useCallback(async (params = { page: 1 }, append = false) => {
+  useEffect(() => {
+    const loadCategories = async () => {
+      const res = await fetchCategories();
+      if (res.success && Array.isArray(res.data)) {
+        const parentCategories = res.data
+          .filter((cat) => !cat.parentCategory)
+          .map((cat) => ({ _id: cat._id, slug: cat.slug, name: cat.name }));
+        setCategories(parentCategories);
+      }
+    };
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      const [wtRes, stRes, cRes] = await Promise.all([
+        fetchWallpaperTypes(),
+        fetchScreenTypes(),
+        fetchColors(),
+      ]);
+      setFilterOptions({
+        wallpaperTypes: wtRes.success ? wtRes.data : [],
+        screenTypes: stRes.success ? stRes.data : [],
+        colors: (cRes.success ? cRes.data : []).filter((c) => c.isActive !== false),
+      });
+    };
+    loadFilterOptions();
+  }, []);
+
+  const fetchImages = useCallback(async (params, append = false) => {
     if (isLoadingRef.current) return;
     isLoadingRef.current = true;
     setIsLoading(true);
     if (!append) setNoMoreResults(false);
     try {
       const res = await apiCall(params);
-      if (res.success && res?.data?.hits) {
-        const hits = res.data.hits;
+      if (res.success && res?.data) {
+        const hits = res.data.hits ?? res.data.data ?? [];
+        const total = res.data.total ?? 0;
         if (append) {
           setImages((prev) => [...prev, ...hits]);
         } else {
           setImages(hits);
         }
-        if (hits.length < PER_PAGE) {
+        if (hits.length < (params.limit || PER_PAGE)) {
           setNoMoreResults(true);
         }
       }
@@ -75,30 +133,19 @@ const HomeScreen = () => {
   };
 
   const applyFilters = () => {
-    if (filters) {
-      pageRef.current = 1;
-      setImages([]);
-      const params = {
-        page: 1,
-        ...filters,
-      };
-      if (activeCategory) params.category = activeCategory;
-      if (search) params.q = search;
-      fetchImages(params, false);
-    }
+    pageRef.current = 1;
+    setImages([]);
+    const params = buildParams(filters, activeCategory, categories, search, 1);
+    fetchImages(params, false);
     closeFiltersModal();
   };
 
   const resetFilters = () => {
-    if (filters) {
-      pageRef.current = 1;
-      setFilters({});
-      setImages([]);
-      const params = { page: 1 };
-      if (activeCategory) params.category = activeCategory;
-      if (search) params.q = search;
-      fetchImages(params, false);
-    }
+    pageRef.current = 1;
+    setFilters({});
+    setImages([]);
+    const params = buildParams({}, activeCategory, categories, search, 1);
+    fetchImages(params, false);
     closeFiltersModal();
   };
 
@@ -108,35 +155,28 @@ const HomeScreen = () => {
     setFilters(filterz);
     pageRef.current = 1;
     setImages([]);
-    const params = { page: 1, ...filterz };
-    if (activeCategory) params.category = activeCategory;
-    if (search) params.q = search;
+    const params = buildParams(filterz, activeCategory, categories, search, 1);
     fetchImages(params, false);
   };
 
-  const handleChangeCategory = (cat) => {
-    setActiveCategory(cat);
+  const handleChangeCategory = (catSlug) => {
+    setActiveCategory(catSlug);
     setSearch("");
     setImages([]);
     pageRef.current = 1;
-    const params = { page: 1, ...filters };
-    if (cat) params.category = cat;
+    const params = buildParams(filters, catSlug, categories, search, 1);
     fetchImages(params, false);
   };
 
   const handleSearch = (text) => {
     setSearch(text);
     pageRef.current = 1;
+    setImages([]);
     if (text.length > 2) {
-      setImages([]);
       setActiveCategory(null);
-      fetchImages({ page: 1, q: text, ...filters }, false);
     }
-    if (text === "") {
-      setImages([]);
-      setActiveCategory(null);
-      fetchImages({ page: 1, ...filters }, false);
-    }
+    const params = buildParams(filters, activeCategory, categories, text, 1);
+    fetchImages(params, false);
   };
 
   const handleSearchDebounce = useCallback(debounce(handleSearch, 400), []);
@@ -158,11 +198,23 @@ const HomeScreen = () => {
     if (isLoadingRef.current || noMoreResults) return;
     const nextPage = pageRef.current + 1;
     pageRef.current = nextPage;
-    const params = { page: nextPage, ...filters };
-    if (activeCategory) params.category = activeCategory;
-    if (search) params.q = search;
+    const params = buildParams(filters, activeCategory, categories, search, nextPage);
     fetchImages(params, true);
-  }, [activeCategory, search, filters, fetchImages, noMoreResults]);
+  }, [activeCategory, search, filters, categories, fetchImages, noMoreResults]);
+
+  const getFilterLabel = (key, value) => {
+    if (key === "dominantColor") return null;
+    if (key === "order") return value;
+    if (key === "wallpaperType") {
+      const opt = filterOptions.wallpaperTypes.find((t) => (t._id ?? t.id) === value);
+      return opt?.name ?? value;
+    }
+    if (key === "screenType") {
+      const opt = filterOptions.screenTypes.find((t) => (t._id ?? t.id) === value);
+      return opt?.name ?? value;
+    }
+    return value;
+  };
 
   const handleScrollUp = useCallback(() => {
     listRef?.current?.scrollToOffset?.({ offset: 0, animated: true });
@@ -223,6 +275,7 @@ const HomeScreen = () => {
 
         <View style={styles.categories}>
           <Categories
+            categories={categories}
             activeCategory={activeCategory}
             handleChangeCategory={handleChangeCategory}
           />
@@ -237,7 +290,7 @@ const HomeScreen = () => {
             >
               {Object.keys(filters).map((key) => (
                 <View key={key} style={styles.filterItem}>
-                  {key === "colors" ? (
+                  {key === "dominantColor" ? (
                     <View
                       style={{
                         width: 30,
@@ -247,7 +300,9 @@ const HomeScreen = () => {
                       }}
                     />
                   ) : (
-                    <Text style={styles.filterItemText}>{filters[key]}</Text>
+                    <Text style={styles.filterItemText}>
+                      {getFilterLabel(key, filters[key]) ?? filters[key]}
+                    </Text>
                   )}
                   <Pressable
                     style={styles.filterCloseIcon}
@@ -284,6 +339,7 @@ const HomeScreen = () => {
         modalRef={modalRef}
         filters={filters}
         setFilters={setFilters}
+        filterOptions={filterOptions}
         onClose={closeFiltersModal}
         onApply={applyFilters}
         onReset={resetFilters}
