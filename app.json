@@ -14,9 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.vimorawalls"
+      "bundleIdentifier": "com.shubham23mamgain.vimorawalls"
     },
     "android": {
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -27,7 +28,7 @@
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
         "android.permission.READ_MEDIA_IMAGES"
       ],
-      "package": "com.anonymous.vimorawalls"
+      "package": "com.shubham23mamgain.vimorawalls"
     },
     "web": {
       "bundler": "metro",
@@ -45,10 +46,23 @@
             "photo"
           ]
         }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-9395722935101852~8731109786",
+          "iosAppId": "ca-app-pub-9395722935101852~8731109786"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0165eaf3-96a5-4f29-8805-bcf32a21f9f6"
+      }
     }
   }
 }

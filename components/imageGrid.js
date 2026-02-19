@@ -1,4 +1,4 @@
-import { StyleSheet, View } from "react-native";
+import { RefreshControl, StyleSheet, View } from "react-native";
 import React, { useCallback } from "react";
 import { FlashList } from "@shopify/flash-list";
 import ImageCard from "./imageCard";
@@ -15,6 +15,8 @@ const ImageGrid = React.memo(
     onEndReached,
     onEndReachedThreshold = 0.5,
     onImagePress,
+    onRefresh,
+    refreshing = false,
   }) => {
     const renderItem = useCallback(
       ({ item, index }) => (
@@ -37,13 +39,19 @@ const ImageGrid = React.memo(
           data={images}
           numColumns={COLUMNS}
           masonry
-          initialNumToRender={15}
-          maxToRenderPerBatch={20}
+          estimatedItemSize={220}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
           contentContainerStyle={styles.listContainerStyle}
           ListHeaderComponent={ListHeaderComponent}
           ListFooterComponent={ListFooterComponent}
           onEndReached={onEndReached}
           onEndReachedThreshold={onEndReachedThreshold}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            ) : undefined
+          }
           renderItem={renderItem}
           keyExtractor={keyExtractor}
         />

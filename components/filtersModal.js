@@ -53,12 +53,22 @@ const FiltersModal = ({
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
-  const modalHeight = Math.min(
-    Math.max(windowHeight * 0.75, 380),
-    Platform.OS === "ios" ? 680 : 700
-  );
+  // Large tablets (e.g. Nexus 10): use more screen width and enough height so content fits
+  const isLargeTablet = windowWidth >= 800;
+  const modalHeight = isLargeTablet
+    ? Math.min(windowHeight * 0.72, 660)
+    : Math.min(
+        Math.max(windowHeight * 0.75, 380),
+        Platform.OS === "ios" ? 680 : 700
+      );
   const sheetPaddingBottom = Math.max(insets.bottom, hp(2));
   const isLargeScreen = windowWidth >= 768;
+  // On large tablets use most of the width; on 7" only use 520px centered
+  const sheetWidthStyle = isLargeTablet
+    ? { width: "92%", maxWidth: windowWidth * 0.92, alignSelf: "center" }
+    : isLargeScreen
+      ? null
+      : null;
 
   return (
     <Modal
@@ -77,7 +87,8 @@ const FiltersModal = ({
           style={[
             styles.sheet,
             { height: modalHeight },
-            isLargeScreen && styles.sheetLargeScreen,
+            isLargeTablet ? sheetWidthStyle : isLargeScreen && styles.sheetLargeScreen,
+            isLargeTablet && styles.sheetLargeTablet,
           ]}
         >
           <ScrollView
@@ -86,7 +97,7 @@ const FiltersModal = ({
               styles.contentScroll,
               { paddingBottom: sheetPaddingBottom },
             ]}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={isLargeTablet}
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.content}>
@@ -117,6 +128,7 @@ const FiltersModal = ({
                         filters,
                         setFilters,
                         filterName: sectionName,
+                        isLargeTablet,
                       })}
                     />
                   </Animated.View>
@@ -190,6 +202,10 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     maxWidth: 520,
     width: "100%",
+  },
+  sheetLargeTablet: {
+    marginBottom: 20,
+    maxHeight: "88%",
   },
   scrollView: {
     flex: 1,

@@ -1,4 +1,4 @@
-package com.anonymous.vimorawalls
+package com.shubham23mamgain.vimorawalls
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

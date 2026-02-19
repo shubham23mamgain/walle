@@ -4,7 +4,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { LikedImagesProvider } from "../context/LikedImagesContext";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 
-// AdMob is initialized in AdMobBanner.js on native only (never imported here so web build works)
+// No AdMob on web – native module not supported
 
 export default function RootLayout() {
   return (

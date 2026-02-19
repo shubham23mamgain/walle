@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   Dimensions,
   Modal,
@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
-import { Ionicons, Feather, FontAwesome6 } from "@expo/vector-icons";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { Ionicons, Feather, FontAwesome6, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
@@ -23,16 +24,35 @@ import { useLikedImages } from "../context/LikedImagesContext";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
+const DOUBLE_TAP_DELAY_MS = 400;
+
 export default function FullScreenImageView({ visible, image, onClose }) {
   const { isLiked, toggleLike } = useLikedImages();
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [settingWallpaper, setSettingWallpaper] = useState(false);
+  const [showHeartFeedback, setShowHeartFeedback] = useState(false);
+  const lastTapRef = useRef(0);
+  const heartFeedbackLikedRef = useRef(false);
 
   const liked = image ? isLiked(image.id) : false;
 
   const handleLike = useCallback(() => {
     if (image) toggleLike(image);
   }, [image, toggleLike]);
+
+  const handleDoubleTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRef.current < DOUBLE_TAP_DELAY_MS) {
+      lastTapRef.current = 0;
+      heartFeedbackLikedRef.current = !liked;
+      handleLike();
+      setShowHeartFeedback(true);
+      setTimeout(() => setShowHeartFeedback(false), 700);
+    } else {
+      lastTapRef.current = now;
+    }
+  }, [handleLike, liked]);
 
   const handleDownload = useCallback(async () => {
     if (!image?.webformatURL) return;
@@ -108,6 +128,85 @@ export default function FullScreenImageView({ visible, image, onClose }) {
     }
   }, [image]);
 
+  const setWallpaper = useCallback(
+    async (type) => {
+      if (!image?.webformatURL) return;
+      setSettingWallpaper(true);
+      try {
+        if (Platform.OS === "android") {
+          let ManageWallpaper, TYPE;
+          try {
+            const w = require("react-native-manage-wallpaper");
+            ManageWallpaper = w.default;
+            TYPE = w.TYPE;
+          } catch (_) {
+            Alert.alert(
+              "Set as wallpaper",
+              "Rebuild the app (development build) to use this feature."
+            );
+            return;
+          }
+          ManageWallpaper.setWallpaper(
+            { uri: image.webformatURL },
+            (res) => {
+              setSettingWallpaper(false);
+              if (res?.status === "success") {
+                Alert.alert(
+                  "Done",
+                  type === "home"
+                    ? "Wallpaper set as home screen."
+                    : "Wallpaper set as lock screen."
+                );
+              } else {
+                Alert.alert(
+                  "Could not set wallpaper",
+                  res?.msg || "Something went wrong. Try again."
+                );
+              }
+            },
+            type === "home" ? TYPE.HOME : TYPE.LOCK
+          );
+          return;
+        }
+        if (Platform.OS === "ios") {
+          const filename = `vimorawalls_${image.id}.jpg`;
+          const path = `${FileSystem.documentDirectory}${filename}`;
+          await FileSystem.downloadAsync(image.webformatURL, path);
+          const localUri = path.startsWith("file://") ? path : `file://${path}`;
+          const { status } = await MediaLibrary.requestPermissionsAsync(false);
+          if (status !== "granted") {
+            Alert.alert(
+              "Permission needed",
+              "Allow access to your photo library to save this image, then set it from Settings → Wallpaper."
+            );
+            return;
+          }
+          const asset = await MediaLibrary.createAssetAsync(localUri);
+          const album = await MediaLibrary.getAlbumAsync("VimoraWalls");
+          if (album) {
+            await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+          } else {
+            await MediaLibrary.createAlbumAsync("VimoraWalls", asset, false);
+          }
+          Alert.alert(
+            "Image saved",
+            "To set as wallpaper: open the Photos app → select this image → tap Share → 'Use as Wallpaper'."
+          );
+        }
+      } catch (e) {
+        const msg = e?.message || e?.toString?.() || "Unknown error";
+        if (__DEV__) console.warn("Set wallpaper error:", msg, e);
+        Alert.alert("Error", "Could not set wallpaper. Try again.");
+      } finally {
+        if (Platform.OS !== "android") setSettingWallpaper(false);
+      }
+    },
+    [image]
+  );
+
+  const handleSetHomeScreen = useCallback(() => setWallpaper("home"), [setWallpaper]);
+  const handleSetLockScreen = useCallback(() => setWallpaper("lock"), [setWallpaper]);
+
   if (!image) return null;
 
   return (
@@ -125,6 +224,27 @@ export default function FullScreenImageView({ visible, image, onClose }) {
           contentFit="contain"
         />
 
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleDoubleTap}
+          accessible
+          accessibilityLabel="Double-tap to like or unlike"
+        />
+        {showHeartFeedback && (
+          <Animated.View
+            entering={FadeIn.duration(150)}
+            exiting={FadeOut.duration(400).delay(250)}
+            style={styles.heartOverlay}
+            pointerEvents="none"
+          >
+            <Ionicons
+              name={heartFeedbackLikedRef.current ? "heart" : "heart-outline"}
+              size={80}
+              color={heartFeedbackLikedRef.current ? "#e74c3c" : "rgba(255,255,255,0.9)"}
+            />
+          </Animated.View>
+        )}
+
         {/* Top bar - glassy close */}
         <View style={styles.topBar}>
           <BlurView intensity={60} tint="dark" style={styles.glassBar}>
@@ -134,7 +254,7 @@ export default function FullScreenImageView({ visible, image, onClose }) {
           </BlurView>
         </View>
 
-        {/* Bottom bar - glassy with Heart, Download, Share */}
+        {/* Bottom bar - glassy with Like, Save, Share + Set Home/Lock */}
         <View style={styles.bottomBar}>
           <BlurView intensity={70} tint="dark" style={styles.glassBarBottom}>
             <View style={styles.actions}>
@@ -173,6 +293,32 @@ export default function FullScreenImageView({ visible, image, onClose }) {
                 <Text style={styles.actionLabel}>Share</Text>
               </Pressable>
             </View>
+            <View style={styles.actionsRow2}>
+              <Pressable
+                onPress={handleSetHomeScreen}
+                style={styles.actionBtn}
+                disabled={settingWallpaper}
+              >
+                {settingWallpaper ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <MaterialCommunityIcons name="cellphone" size={22} color="#fff" />
+                )}
+                <Text style={styles.actionLabel}>Set as Home Screen</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSetLockScreen}
+                style={styles.actionBtn}
+                disabled={settingWallpaper}
+              >
+                {settingWallpaper ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <MaterialCommunityIcons name="lock-outline" size={22} color="#fff" />
+                )}
+                <Text style={styles.actionLabel}>Set as Lock Screen</Text>
+              </Pressable>
+            </View>
           </BlurView>
         </View>
       </View>
@@ -190,6 +336,11 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     position: "absolute",
+  },
+  heartOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
   },
   topBar: {
     position: "absolute",
@@ -228,6 +379,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
+  },
+  actionsRow2: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    marginTop: hp(1.2),
+    paddingTop: hp(1.2),
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.15)",
   },
   actionBtn: {
     alignItems: "center",

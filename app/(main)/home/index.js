@@ -1,5 +1,6 @@
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,8 +26,11 @@ import ImageGrid from "../../../components/imageGrid";
 import { debounce } from "lodash";
 import FiltersModal from "../../../components/filtersModal";
 import FullScreenImageView from "../../../components/FullScreenImageView";
+import AdMobBanner from "../../../components/AdMobBanner";
+import * as WebBrowser from "expo-web-browser";
 
 const PER_PAGE = 25;
+const PRIVACY_POLICY_URL = "https://sites.google.com/view/vimorawalls/home";
 
 /** Build API params from filters and active category (slug -> mainCategory id). */
 const buildParams = (filters, activeCategorySlug, categories, search, page) => {
@@ -57,6 +61,7 @@ const HomeScreen = () => {
   const isLoadingRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
   const [noMoreResults, setNoMoreResults] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [categories, setCategories] = useState([]);
   const [filterOptions, setFilterOptions] = useState({
@@ -99,8 +104,8 @@ const HomeScreen = () => {
     loadFilterOptions();
   }, []);
 
-  const fetchImages = useCallback(async (params, append = false) => {
-    if (isLoadingRef.current) return;
+  const fetchImages = useCallback(async (params, append = false, force = false) => {
+    if (!force && isLoadingRef.current) return;
     isLoadingRef.current = true;
     setIsLoading(true);
     if (!append) setNoMoreResults(false);
@@ -220,6 +225,19 @@ const HomeScreen = () => {
     listRef?.current?.scrollToOffset?.({ offset: 0, animated: true });
   }, []);
 
+  const onImagePress = useCallback((item) => setSelectedImage(item), []);
+
+  const openPrivacyPolicy = useCallback(() => {
+    WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL);
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    pageRef.current = 1;
+    setRefreshing(true);
+    const params = buildParams(filters, activeCategory, categories, search, 1);
+    fetchImages(params, false, true).finally(() => setRefreshing(false));
+  }, [fetchImages, filters, activeCategory, categories, search]);
+
   const listFooterComponent = useCallback(
     () => (
       <View style={[styles.listFooter, images.length > 0 && styles.listFooterWithContent]}>
@@ -242,6 +260,9 @@ const HomeScreen = () => {
           <Text style={styles.title}>VimoraWalls</Text>
         </Pressable>
         <View style={styles.headerIcons}>
+          <Pressable onPress={openPrivacyPolicy} style={styles.headerIconBtn}>
+            <Ionicons name="information-circle-outline" size={24} color={theme.colors.neutral(0.7)} />
+          </Pressable>
           <Pressable onPress={() => router.push("/favorites")} style={styles.headerIconBtn}>
             <Ionicons name="heart-outline" size={24} color={theme.colors.neutral(0.7)} />
           </Pressable>
@@ -326,8 +347,12 @@ const HomeScreen = () => {
         listRef={listRef}
         ListFooterComponent={listFooterComponent}
         onEndReached={handleLoadMore}
-        onImagePress={(item) => setSelectedImage(item)}
+        onImagePress={onImagePress}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
       />
+
+      <AdMobBanner />
 
       <FullScreenImageView
         visible={!!selectedImage}

@@ -1,4 +1,4 @@
-package com.anonymous.vimorawalls
+package com.shubham23mamgain.vimorawalls
 
 import android.app.Application
 import android.content.res.Configuration

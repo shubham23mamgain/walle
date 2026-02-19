@@ -71,21 +71,39 @@ export const IdNameFilterView = ({ data, filterName, filters, setFilters }) => {
 };
 
 /** For colors from API: { _id, name, hexCode }. Stores hexCode as dominantColor. */
-export const ColorFilterView = ({ data, filterName, filters, setFilters }) => {
+export const ColorFilterView = ({
+  data,
+  filterName,
+  filters,
+  setFilters,
+  isLargeTablet,
+}) => {
   const onSelect = (hexCode) => {
     setFilters({ ...filters, [filterName]: hexCode });
   };
   if (!data || !Array.isArray(data)) return null;
   return (
-    <View style={styles.flexRowWrap}>
+    <View style={[styles.flexRowWrap, isLargeTablet && styles.colorGridLargeTablet]}>
       {data.map((item) => {
         const hex = typeof item === "string" ? item : (item.hexCode ?? item);
         const isActive = filterName && filters[filterName] === hex;
         const borderColor = isActive ? theme.colors.neutral(0.4) : "white";
         return (
           <Pressable onPress={() => onSelect(hex)} key={hex}>
-            <View style={[styles.colorWrapper, { borderColor }]}>
-              <View style={[styles.color, { backgroundColor: hex }]} />
+            <View
+              style={[
+                styles.colorWrapper,
+                { borderColor },
+                isLargeTablet && styles.colorWrapperLargeTablet,
+              ]}
+            >
+              <View
+                style={[
+                  styles.color,
+                  { backgroundColor: hex },
+                  isLargeTablet && styles.colorLargeTablet,
+                ]}
+              />
             </View>
           </Pressable>
         );
@@ -127,5 +145,16 @@ const styles = StyleSheet.create({
     width: 40,
     borderRadius: theme.radius.sm,
     borderCurve: "continuous",
+  },
+  colorGridLargeTablet: {
+    gap: 8,
+    maxWidth: "100%",
+  },
+  colorWrapperLargeTablet: {
+    padding: 2,
+  },
+  colorLargeTablet: {
+    height: 36,
+    width: 44,
   },
 });

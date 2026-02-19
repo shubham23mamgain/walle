@@ -1,14 +1,44 @@
 import { StyleSheet, Text, View, Image, Pressable } from "react-native";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { hp, wp } from "../helpers/common";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { theme } from "../constants/theme";
 import { useRouter } from "expo-router";
 
+const WELCOME_SEEN_KEY = "vimorawalls_hasSeenWelcome";
+
 const WelcomeScreen = () => {
   const router = useRouter();
+  const hasRedirected = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (hasRedirected.current) return;
+      try {
+        const seen = await AsyncStorage.getItem(WELCOME_SEEN_KEY);
+        if (cancelled || hasRedirected.current) return;
+        if (seen === "true") {
+          hasRedirected.current = true;
+          router.replace("/(main)/home");
+        }
+      } catch (_) {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  const handleDiscover = async () => {
+    try {
+      await AsyncStorage.setItem(WELCOME_SEEN_KEY, "true");
+    } catch (_) {}
+    router.push("/(main)/home");
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -50,7 +80,7 @@ const WelcomeScreen = () => {
 
           <Animated.View entering={FadeInDown.delay(600).springify()}>
             <Pressable
-              onPress={() => router.push("/(main)/home")}
+              onPress={handleDiscover}
               style={styles.startButton}
             >
               <Text style={styles.startText}>Discover Now</Text>
